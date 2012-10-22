@@ -9,7 +9,7 @@ class Test
 end
 
 class Tracer
-  attr_reader :line_nums_executed, :lines_read, :lines_not_executed
+  attr_reader :line_nums_executed, :lines_read, :lines_not_executed, :locals
   
   def initialize
     @line_nums_executed = []
@@ -17,7 +17,8 @@ class Tracer
 
   def trace
     trace_proc = Proc.new { |event, file, line_num, id, binding, classname|
-      printf "%8s %s %s %10s %s\n", event, file, line_num, id, classname
+      printf "%8s %s %s %10s %s\n", event, file, line_num, id, binding, classname
+      # @locals << binding.eval("local_variables")
       # printf "%8s %s %s %s \n", event, line_num, binding, classname
       if event == 'line' || event == 'call'
         @line_nums_executed << line_num
@@ -51,6 +52,9 @@ t.test
 
 tracer.untrace
 
+puts "Local variables"
+puts tracer.locals
+
 puts "Lines executed"
 tracer.line_nums_executed.each do |line_num|
   print line_num, ":", tracer.lines_read[line_num-1]
@@ -60,4 +64,4 @@ tracer.lines_not_executed.each do |line|
   puts line
 end
 
-# binding.pry
+binding.pry
