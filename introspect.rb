@@ -1,75 +1,58 @@
-# require 'pry'
-
-class Test
-  attr_reader :list_not_initialized
-
-  def test
-    a = 3
-    b = 2
-    a + b
-  end
-
-  def break_things
-    @list_not_initialized << 1
-  end
-
-end
+require 'json'
+input_file = "./#{ARGV[0]}.rb"
 
 class Tracer
-  attr_reader :line_nums_executed, :lines_read, :lines_not_executed, :locals
+  attr_reader :code, :locals, :trace
   
   def initialize
     @line_nums_executed = []
-    @locals = [] #failing to initialize sends @locals << binding.eval("local_variables") into an infinite loop
+    @trace = []
+    @code = ""
   end
 
-  def trace
+  def activate_trace
     trace_proc = Proc.new { |event, file, line_num, id, binding, classname|
-      printf "%8s %s %s %10s %s %s\n", event, file, line_num, id, binding, classname
-      @locals << binding.eval("local_variables")
-      if event == 'line' || event == 'call'
-        @line_nums_executed << line_num
+      if file.include? ARGV[0]
+        printf "%8s %s %s %10s %s %s\n", event, file, line_num, id, binding, classname
+        subtrace = {}
+        # subtrace["ordered_globals"] = []
+        # subtrace["stdout"] = binding.eval("stdout.flush")
+        subtrace["func_name"] = id
+        # subtrace["stack_to_render"] = []
+        # subtrace["globals"] = binding.eval("global_variables") # not quite what we need
+        # subtrace["heap"] = []
+        subtrace["line"] = line_num
+        subtrace["event"] = event
+
+        @trace << subtrace
       end
     }
     set_trace_func(trace_proc)
   end
 
-  def untrace
+  def stop_trace
     set_trace_func nil
   end
 
-  def read_file(file)
-    @lines_read = file.readlines
+  def read_file(filename)
+    file = File.open(filename)
+    @code = file.read #returns a string
+    file.close
   end
 
-  def lines_not_executed
-    @lines_not_executed ||= @lines_read.reject.with_index do |line, num|
-      line == "\n" or @line_nums_executed.include? num #must use "or" not "||" to bind more loosely than fn application
-    end
-  end
+end
 
+def generate_json(code, trace)
+  {"code" => code, "trace" => trace}.to_json
 end
 
 tracer = Tracer.new
-tracer.read_file(File.open(__FILE__)) #__FILE__ is current file
-tracer.trace
+tracer.read_file(input_file)
 
-t = Test.new
-t.test
-# t.break_things exception handling
+tracer.activate_trace
+load input_file #loads & executes input file code
 
-tracer.untrace
+tracer.stop_trace
+print generate_json(tracer.code, tracer.trace)
 
-puts "Local variables"
-puts tracer.locals
 
-puts "Lines executed"
-tracer.line_nums_executed.each do |line_num|
-  print line_num, ":", tracer.lines_read[line_num-1]
-end
-puts "Lines not executed"
-tracer.lines_not_executed.each do |line|
-  puts line
-end
-
-# binding.pry
