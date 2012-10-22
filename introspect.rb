@@ -1,11 +1,18 @@
-require 'pry'
+# require 'pry'
 
 class Test
+  attr_reader :list_not_initialized
+
   def test
     a = 3
     b = 2
     a + b
   end
+
+  def break_things
+    @list_not_initialized << 1
+  end
+
 end
 
 class Tracer
@@ -13,13 +20,13 @@ class Tracer
   
   def initialize
     @line_nums_executed = []
+    @locals = [] #failing to initialize sends @locals << binding.eval("local_variables") into an infinite loop
   end
 
   def trace
     trace_proc = Proc.new { |event, file, line_num, id, binding, classname|
-      printf "%8s %s %s %10s %s\n", event, file, line_num, id, binding, classname
-      # @locals << binding.eval("local_variables")
-      # printf "%8s %s %s %s \n", event, line_num, binding, classname
+      printf "%8s %s %s %10s %s %s\n", event, file, line_num, id, binding, classname
+      @locals << binding.eval("local_variables")
       if event == 'line' || event == 'call'
         @line_nums_executed << line_num
       end
@@ -49,6 +56,7 @@ tracer.trace
 
 t = Test.new
 t.test
+# t.break_things exception handling
 
 tracer.untrace
 
@@ -64,4 +72,4 @@ tracer.lines_not_executed.each do |line|
   puts line
 end
 
-binding.pry
+# binding.pry
